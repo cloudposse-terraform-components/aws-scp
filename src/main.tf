@@ -1,5 +1,46 @@
 locals {
-  enabled = module.this.enabled
+  enabled     = module.this.enabled
+  policy_name = coalesce(var.policy_name, module.this.id)
+
+  generated_policy = length(var.policy_statements) > 0 ? jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      for stmt in var.policy_statements : merge(
+        {
+          Effect   = stmt.effect
+          Action   = stmt.actions
+          Resource = stmt.resources
+        },
+        stmt.sid != null ? { Sid = stmt.sid } : {},
+        length(coalesce(stmt.conditions, [])) > 0 ? {
+          Condition = {
+            for cond in stmt.conditions : cond.test => {
+              (cond.variable) = cond.values
+            }
+          }
+        } : {}
+      )
+    ]
+  }) : null
+
+  policy_content = coalesce(var.policy_content, local.generated_policy)
 }
 
+resource "aws_organizations_policy" "this" {
+  count = local.enabled ? 1 : 0
 
+  name        = local.policy_name
+  description = var.policy_description
+  content     = local.policy_content
+  type        = "SERVICE_CONTROL_POLICY"
+  tags        = module.this.tags
+
+  skip_destroy = var.skip_destroy
+}
+
+resource "aws_organizations_policy_attachment" "this" {
+  count = local.enabled && var.attach_to_target && var.target_id != null ? 1 : 0
+
+  policy_id = aws_organizations_policy.this[0].id
+  target_id = var.target_id
+}
