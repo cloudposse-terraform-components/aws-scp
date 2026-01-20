@@ -14,9 +14,11 @@ locals {
         stmt.sid != null ? { Sid = stmt.sid } : {},
         length(coalesce(stmt.conditions, [])) > 0 ? {
           Condition = {
-            for cond in stmt.conditions : cond.test => {
-              (cond.variable) = cond.values
-            }
+            for test_key, test_conditions in groupby(coalesce(stmt.conditions, []), cond => cond.test) : test_key => merge([
+              for cond in test_conditions : {
+                (cond.variable) = cond.values
+              }
+            ]...)
           }
         } : {}
       )
@@ -34,8 +36,6 @@ resource "aws_organizations_policy" "this" {
   content     = local.policy_content
   type        = "SERVICE_CONTROL_POLICY"
   tags        = module.this.tags
-
-  skip_destroy = var.skip_destroy
 }
 
 resource "aws_organizations_policy_attachment" "this" {

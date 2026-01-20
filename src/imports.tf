@@ -5,7 +5,7 @@ variable "import_policy_id" {
 }
 
 import {
-  for_each = var.import_policy_id != null && var.enabled != false ? toset([var.import_policy_id]) : toset([])
+  for_each = var.import_policy_id != null && local.enabled ? toset([var.import_policy_id]) : toset([])
   to       = aws_organizations_policy.this[0]
   id       = each.value
 }
