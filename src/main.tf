@@ -14,8 +14,8 @@ locals {
         stmt.sid != null ? { Sid = stmt.sid } : {},
         length(coalesce(stmt.conditions, [])) > 0 ? {
           Condition = {
-            for test_key, test_conditions in groupby(coalesce(stmt.conditions, []), cond => cond.test) : test_key => merge([
-              for cond in test_conditions : {
+            for test_key in distinct([for c in coalesce(stmt.conditions, []) : c.test]) : test_key => merge([
+              for cond in [for c in coalesce(stmt.conditions, []) : c if c.test == test_key] : {
                 (cond.variable) = cond.values
               }
             ]...)
