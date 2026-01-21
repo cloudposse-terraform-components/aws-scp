@@ -2,6 +2,6 @@ components:
   terraform:
     example/disabled:
       metadata:
-        component: aws-scp
+        component: target
       vars:
         enabled: false

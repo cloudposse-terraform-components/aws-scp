@@ -2,7 +2,7 @@ components:
   terraform:
     example/basic:
       metadata:
-        component: aws-scp
+        component: target
       vars:
         enabled: true
         policy_statements:
