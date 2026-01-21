@@ -151,13 +151,13 @@ This component is part of a suite of single-resource components for AWS Organiza
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.7.0 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 4.9.0, < 6.0.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.66 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 4.9.0, < 6.0.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.66 |
 
 ## Modules
 
@@ -230,5 +230,5 @@ This component is part of a suite of single-resource components for AWS Organiza
 
 
 
-[<img src="https://cloudposse.com/logo-300x69.svg" height="32" align="right" alt="Cloud Posse logo"/>](https://cpco.io/homepage?utm_source=github&utm_medium=readme&utm_campaign=cloudposse-terraform-components/aws-scp&utm_content=)
+[<img src="https://cloudposse.com/logo-300x69.svg" height="32" align="right"/>](https://cpco.io/homepage?utm_source=github&utm_medium=readme&utm_campaign=cloudposse-terraform-components/aws-scp&utm_content=)
 
