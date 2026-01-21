@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(terraform fmt:*)",
+      "Read(//path/to/your/project/root/**)",
+      "Bash(ln:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
