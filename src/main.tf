@@ -26,7 +26,7 @@ locals {
   }) : null
 
   policy_content = coalesce(var.policy_content, local.generated_policy, jsonencode({
-    Version = "2012-10-17"
+    Version   = "2012-10-17"
     Statement = []
   }))
 }
