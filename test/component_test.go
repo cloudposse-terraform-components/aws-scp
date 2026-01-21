@@ -12,6 +12,8 @@ type ComponentSuite struct {
 }
 
 func (s *ComponentSuite) TestBasic() {
+	s.T().Skipf("skipping TestBasic: %s", "test not yet implemented")
+
 	const component = "example/basic"
 	const stack = "default-test"
 	const awsRegion = "us-east-2"

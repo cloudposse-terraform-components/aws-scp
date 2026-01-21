@@ -76,3 +76,6 @@ github/
 *.ovpn
 
 *.zip
+
+# Claude Code local settings
+.claude/settings.local.json

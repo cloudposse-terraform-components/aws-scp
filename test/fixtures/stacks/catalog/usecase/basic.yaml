@@ -5,3 +5,10 @@ components:
         component: target
       vars:
         enabled: true
+        policy_statements:
+          - sid: "DenyAllActions"
+            effect: "Deny"
+            actions:
+              - "*"
+            resources:
+              - "*"
