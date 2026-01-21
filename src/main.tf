@@ -1,6 +1,6 @@
 locals {
   enabled     = module.this.enabled
-  policy_name = coalesce(var.policy_name, module.this.id)
+  policy_name = coalesce(var.policy_name, module.this.id, "default-policy")
 
   generated_policy = length(var.policy_statements) > 0 ? jsonencode({
     Version = "2012-10-17"
@@ -25,7 +25,10 @@ locals {
     ]
   }) : null
 
-  policy_content = coalesce(var.policy_content, local.generated_policy)
+  policy_content = coalesce(var.policy_content, local.generated_policy, jsonencode({
+    Version = "2012-10-17"
+    Statement = []
+  }))
 }
 
 resource "aws_organizations_policy" "this" {
