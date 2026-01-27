@@ -64,7 +64,7 @@ locals {
 
   # Resolve policy statements from SID or use explicit statements
   resolved_policy_statements = (
-    var.policy_sid != null
+    var.policy_sid != null && contains(keys(local.catalog_policies_map), var.policy_sid)
     ? [local.catalog_policies_map[var.policy_sid]] # Wrap in list for single statement
     : var.policy_statements
   )
