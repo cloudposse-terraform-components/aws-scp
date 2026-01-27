@@ -13,13 +13,13 @@ module "service_control_policy_catalog" {
 
 # Look up existing SCPs to check if policy already exists
 data "aws_organizations_policies" "service_control_policies" {
-  count = local.enabled ? 1 : 0
+  count  = local.enabled ? 1 : 0
   filter = "SERVICE_CONTROL_POLICY"
 }
 
 # Look up details of each existing policy to find matching name
 data "aws_organizations_policy" "existing" {
-  for_each = local.enabled && var.policy_id == null ? toset(try(data.aws_organizations_policies.service_control_policies[0].ids, [])) : toset([])
+  for_each  = local.enabled && var.policy_id == null ? toset(try(data.aws_organizations_policies.service_control_policies[0].ids, [])) : toset([])
   policy_id = each.value
 }
 
