@@ -108,6 +108,181 @@ usage: |-
 
   > **Note:** If you don't need import functionality, you can exclude `imports.tf` when vendoring the component.
 
+  ### Using Catalog-Based Policies (SID Lookup)
+
+  Load pre-defined policies from a remote catalog by referencing them by SID (Statement ID):
+
+  ```yaml
+  components:
+    terraform:
+      # Define catalog defaults for all SCP components
+      aws-scp/defaults:
+        metadata:
+          component: aws-scp
+          type: abstract
+        vars:
+          enabled: true
+          attach_to_target: true
+          skip_destroy: false
+          # Load official CloudPosse SCP catalog (version pinned for stability)
+          service_control_policies_config_paths:
+            - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/cloudwatch-logs-policies.yaml"
+            - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/deny-all-policies.yaml"
+            - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/iam-policies.yaml"
+            - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/kms-policies.yaml"
+            - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/organization-policies.yaml"
+            - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/route53-policies.yaml"
+            - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/s3-policies.yaml"
+            - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/ec2-policies.yaml"
+
+      # Reference policy by SID
+      aws-scp/deny-leaving-organization:
+        metadata:
+          component: aws-scp
+          inherits:
+            - aws-scp/defaults
+        vars:
+          policy_sid: "DenyLeavingOrganization"
+          policy_description: "Prevents accounts from leaving the organization"
+          target_id: !terraform.state aws-organization organization_root_id
+  ```
+
+  #### Catalog Format
+
+  Catalog files are YAML lists containing policy definitions with SIDs:
+
+  ```yaml
+  - sid: "DenyLeavingOrganization"
+    effect: "Deny"
+    actions:
+      - "organizations:LeaveOrganization"
+    resources:
+      - "*"
+
+  - sid: "DenyRootAccountAccess"
+    effect: "Deny"
+    actions:
+      - "*"
+    condition:  # Note: catalogs use 'condition' (singular)
+      - test: "StringLike"
+        variable: "aws:PrincipalArn"
+        values:
+          - "arn:aws:iam::*:root"
+    resources:
+      - "*"
+  ```
+
+  #### Available Catalogs
+
+  CloudPosse maintains an official catalog of SCP policies:
+  https://github.com/cloudposse/terraform-aws-service-control-policies/tree/0.15.1/catalog
+
+  Available catalog files include:
+  - `organization-policies.yaml` - Organization management policies
+  - `iam-policies.yaml` - IAM-related policies
+  - `ec2-policies.yaml` - EC2 service policies
+  - `s3-policies.yaml` - S3 service policies
+  - And many more...
+
+  > **Recommendation**: Pin catalog URLs to specific versions (e.g., `/0.15.1/`) for stability. Avoid using `/main/` branch URLs in production.
+
+  #### Shared Catalog Pattern (Recommended)
+
+  For multiple policies, define catalog defaults once and inherit:
+
+  ```yaml
+  components:
+    terraform:
+      # Abstract defaults with catalog
+      aws-scp/catalog-defaults:
+        metadata:
+          type: abstract
+        vars:
+          service_control_policies_config_paths:
+            - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/organization-policies.yaml"
+
+      # Policy 1
+      aws-scp/deny-leaving-org:
+        metadata:
+          inherits: [aws-scp/catalog-defaults]
+        vars:
+          policy_sid: "DenyLeavingOrganization"
+          target_id: !terraform.state aws-organization organization_root_id
+
+      # Policy 2
+      aws-scp/deny-root-access:
+        metadata:
+          inherits: [aws-scp/catalog-defaults]
+        vars:
+          policy_sid: "DenyRootAccountAccess"
+          target_id: !terraform.state aws-organizational-unit/core organizational_unit_id
+  ```
+
+  #### Attaching Same Policy to Multiple Targets
+
+  Create a policy once and attach it to multiple targets:
+
+  ```yaml
+  components:
+    terraform:
+      # Master instance - creates the policy
+      aws-scp/deny-root-access:
+        metadata:
+          inherits: [aws-scp/catalog-defaults]
+        vars:
+          policy_sid: "DenyRootAccountAccess"
+          target_id: !terraform.state aws-organizational-unit/core organizational_unit_id
+
+      # Attachment instances - reference the existing policy
+      aws-scp/deny-root-access-plat:
+        metadata:
+          component: aws-scp
+        vars:
+          # Reference the policy created by the master instance
+          policy_id: !terraform.output aws-scp/deny-root-access policy_id
+          target_id: !terraform.state aws-organizational-unit/plat organizational_unit_id
+
+      aws-scp/deny-root-access-sandbox:
+        metadata:
+          component: aws-scp
+        vars:
+          policy_id: !terraform.output aws-scp/deny-root-access policy_id
+          target_id: !terraform.state aws-organizational-unit/sandbox organizational_unit_id
+  ```
+
+  > **Note**: When using `policy_id`, the policy is NOT created - only the attachment is managed. This prevents duplicate policies with the same SID.
+
+  #### Mixed Approach (Catalog + Custom)
+
+  You can use both catalog policies and custom policies in the same configuration:
+
+  ```yaml
+  components:
+    terraform:
+      # Catalog-based policy
+      aws-scp/deny-leaving-org:
+        vars:
+          service_control_policies_config_paths:
+            - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/organization-policies.yaml"
+          policy_sid: "DenyLeavingOrganization"
+          target_id: !terraform.state aws-organization organization_root_id
+
+      # Custom policy (using policy_statements)
+      aws-scp/custom-policy:
+        vars:
+          policy_name: "CustomDenyEC2Large"
+          policy_statements:
+            - sid: "DenyEC2Large"
+              effect: "Deny"
+              actions: ["ec2:RunInstances"]
+              resources: ["*"]
+              conditions:
+                - test: "StringLike"
+                  variable: "ec2:InstanceType"
+                  values: ["*.24xlarge"]
+          target_id: !terraform.state aws-organizational-unit/plat organizational_unit_id
+  ```
+
   ## Policy Statements Format
 
   ```yaml
@@ -136,6 +311,10 @@ usage: |-
   | `aws-account` | Creates/imports a single AWS Account |
   | `aws-account-settings` | Configures account settings |
   | `aws-scp` | Creates/imports Service Control Policies (this component) |
+
+  **Policy Catalogs**: This component supports loading policies from remote YAML catalogs, enabling
+  reusable policy definitions across your organization. See the official CloudPosse SCP catalog:
+  https://github.com/cloudposse/terraform-aws-service-control-policies/tree/0.15.1/catalog
 
 references:
   - name: cloudposse-terraform-components

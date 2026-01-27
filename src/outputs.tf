@@ -1,16 +1,16 @@
 output "policy_id" {
-  value       = try(aws_organizations_policy.this[0].id, null)
+  value       = local.use_existing_policy ? local.final_policy_id : try(aws_organizations_policy.this[0].id, null)
   description = "The ID of the Service Control Policy"
 }
 
 output "policy_arn" {
   value       = try(aws_organizations_policy.this[0].arn, null)
-  description = "The ARN of the Service Control Policy"
+  description = "The ARN of the Service Control Policy (only available when creating policy, not when using existing)"
 }
 
 output "policy_name" {
-  value       = try(aws_organizations_policy.this[0].name, null)
-  description = "The name of the Service Control Policy"
+  value       = local.use_existing_policy ? null : try(aws_organizations_policy.this[0].name, null)
+  description = "The name of the Service Control Policy (only available when creating policy, not when using existing)"
 }
 
 output "target_id" {
