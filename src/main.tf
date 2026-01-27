@@ -99,6 +99,22 @@ locals {
   }))
 }
 
+# Module-level validation to ensure policy_id and policy sources are mutually exclusive
+resource "terraform_data" "validation" {
+  count = local.enabled ? 1 : 0
+
+  lifecycle {
+    # Ensure policy_id and policy sources are mutually exclusive
+    precondition {
+      condition = (
+        var.policy_id == null ||
+        (var.policy_sid == null && length(var.policy_statements) == 0 && var.policy_content == null)
+      )
+      error_message = "policy_id is mutually exclusive with policy_sid, policy_statements, and policy_content. Use policy_id to attach an existing policy, or use policy_sid/policy_statements/policy_content to create a new one."
+    }
+  }
+}
+
 resource "aws_organizations_policy" "this" {
   count = local.create_policy ? 1 : 0
 
@@ -119,15 +135,6 @@ resource "aws_organizations_policy" "this" {
         ) == 1
       )
       error_message = "When policy_id is not set, exactly one of policy_sid, policy_statements, or policy_content must be provided."
-    }
-
-    # Ensure policy_id and policy sources are mutually exclusive
-    precondition {
-      condition = (
-        var.policy_id == null ||
-        (var.policy_sid == null && length(var.policy_statements) == 0 && var.policy_content == null)
-      )
-      error_message = "policy_id is mutually exclusive with policy_sid, policy_statements, and policy_content. Use policy_id to attach an existing policy, or use policy_sid/policy_statements/policy_content to create a new one."
     }
 
     # Ensure catalog is loaded when using policy_sid
