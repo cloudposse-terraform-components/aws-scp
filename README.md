@@ -154,6 +154,181 @@ After successful import, you can remove the `import_policy_id` variable.
 
 > **Note:** If you don't need import functionality, you can exclude `imports.tf` when vendoring the component.
 
+### Using Catalog-Based Policies (SID Lookup)
+
+Load pre-defined policies from a remote catalog by referencing them by SID (Statement ID):
+
+```yaml
+components:
+  terraform:
+    # Define catalog defaults for all SCP components
+    aws-scp/defaults:
+      metadata:
+        component: aws-scp
+        type: abstract
+      vars:
+        enabled: true
+        attach_to_target: true
+        skip_destroy: false
+        # Load official CloudPosse SCP catalog (version pinned for stability)
+        service_control_policies_config_paths:
+          - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/cloudwatch-logs-policies.yaml"
+          - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/deny-all-policies.yaml"
+          - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/iam-policies.yaml"
+          - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/kms-policies.yaml"
+          - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/organization-policies.yaml"
+          - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/route53-policies.yaml"
+          - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/s3-policies.yaml"
+          - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/ec2-policies.yaml"
+
+    # Reference policy by SID
+    aws-scp/deny-leaving-organization:
+      metadata:
+        component: aws-scp
+        inherits:
+          - aws-scp/defaults
+      vars:
+        policy_sid: "DenyLeavingOrganization"
+        policy_description: "Prevents accounts from leaving the organization"
+        target_id: !terraform.state aws-organization organization_root_id
+```
+
+#### Catalog Format
+
+Catalog files are YAML lists containing policy definitions with SIDs:
+
+```yaml
+- sid: "DenyLeavingOrganization"
+  effect: "Deny"
+  actions:
+    - "organizations:LeaveOrganization"
+  resources:
+    - "*"
+
+- sid: "DenyRootAccountAccess"
+  effect: "Deny"
+  actions:
+    - "*"
+  condition:  # Note: catalogs use 'condition' (singular)
+    - test: "StringLike"
+      variable: "aws:PrincipalArn"
+      values:
+        - "arn:aws:iam::*:root"
+  resources:
+    - "*"
+```
+
+#### Available Catalogs
+
+CloudPosse maintains an official catalog of SCP policies:
+https://github.com/cloudposse/terraform-aws-service-control-policies/tree/0.15.1/catalog
+
+Available catalog files include:
+- `organization-policies.yaml` - Organization management policies
+- `iam-policies.yaml` - IAM-related policies
+- `ec2-policies.yaml` - EC2 service policies
+- `s3-policies.yaml` - S3 service policies
+- And many more...
+
+> **Recommendation**: Pin catalog URLs to specific versions (e.g., `/0.15.1/`) for stability. Avoid using `/main/` branch URLs in production.
+
+#### Shared Catalog Pattern (Recommended)
+
+For multiple policies, define catalog defaults once and inherit:
+
+```yaml
+components:
+  terraform:
+    # Abstract defaults with catalog
+    aws-scp/catalog-defaults:
+      metadata:
+        type: abstract
+      vars:
+        service_control_policies_config_paths:
+          - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/organization-policies.yaml"
+
+    # Policy 1
+    aws-scp/deny-leaving-org:
+      metadata:
+        inherits: [aws-scp/catalog-defaults]
+      vars:
+        policy_sid: "DenyLeavingOrganization"
+        target_id: !terraform.state aws-organization organization_root_id
+
+    # Policy 2
+    aws-scp/deny-root-access:
+      metadata:
+        inherits: [aws-scp/catalog-defaults]
+      vars:
+        policy_sid: "DenyRootAccountAccess"
+        target_id: !terraform.state aws-organizational-unit/core organizational_unit_id
+```
+
+#### Attaching Same Policy to Multiple Targets
+
+Create a policy once and attach it to multiple targets:
+
+```yaml
+components:
+  terraform:
+    # Master instance - creates the policy
+    aws-scp/deny-root-access:
+      metadata:
+        inherits: [aws-scp/catalog-defaults]
+      vars:
+        policy_sid: "DenyRootAccountAccess"
+        target_id: !terraform.state aws-organizational-unit/core organizational_unit_id
+
+    # Attachment instances - reference the existing policy
+    aws-scp/deny-root-access-plat:
+      metadata:
+        component: aws-scp
+      vars:
+        # Reference the policy created by the master instance
+        policy_id: !terraform.output aws-scp/deny-root-access policy_id
+        target_id: !terraform.state aws-organizational-unit/plat organizational_unit_id
+
+    aws-scp/deny-root-access-sandbox:
+      metadata:
+        component: aws-scp
+      vars:
+        policy_id: !terraform.output aws-scp/deny-root-access policy_id
+        target_id: !terraform.state aws-organizational-unit/sandbox organizational_unit_id
+```
+
+> **Note**: When using `policy_id`, the policy is NOT created - only the attachment is managed. This prevents duplicate policies with the same SID.
+
+#### Mixed Approach (Catalog + Custom)
+
+You can use both catalog policies and custom policies in the same configuration:
+
+```yaml
+components:
+  terraform:
+    # Catalog-based policy
+    aws-scp/deny-leaving-org:
+      vars:
+        service_control_policies_config_paths:
+          - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/organization-policies.yaml"
+        policy_sid: "DenyLeavingOrganization"
+        target_id: !terraform.state aws-organization organization_root_id
+
+    # Custom policy (using policy_statements)
+    aws-scp/custom-policy:
+      vars:
+        policy_name: "CustomDenyEC2Large"
+        policy_statements:
+          - sid: "DenyEC2Large"
+            effect: "Deny"
+            actions: ["ec2:RunInstances"]
+            resources: ["*"]
+            conditions:
+              - test: "StringLike"
+                variable: "ec2:InstanceType"
+                values: ["*.24xlarge"]
+        target_id: !terraform.state aws-organizational-unit/plat organizational_unit_id
+```
+
 ## Policy Statements Format
 
 ```yaml
@@ -183,6 +358,10 @@ This component is part of a suite of single-resource components for AWS Organiza
 | `aws-account-settings` | Configures account settings |
 | `aws-scp` | Creates/imports Service Control Policies (this component) |
 
+**Policy Catalogs**: This component supports loading policies from remote YAML catalogs, enabling
+reusable policy definitions across your organization. See the official CloudPosse SCP catalog:
+https://github.com/cloudposse/terraform-aws-service-control-policies/tree/0.15.1/catalog
+
 > [!IMPORTANT]
 > In Cloud Posse's examples, we avoid pinning modules to specific versions to prevent discrepancies between the documentation
 > and the latest released versions. However, for your own projects, we strongly advise pinning each module to the exact version
@@ -202,18 +381,19 @@ This component is part of a suite of single-resource components for AWS Organiza
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.7.0 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 4.9.0, < 6.0.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.66 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 4.9.0, < 6.0.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.66 |
 
 ## Modules
 
 | Name | Source | Version |
 |------|--------|---------|
+| <a name="module_service_control_policy_catalog"></a> [service\_control\_policy\_catalog](#module\_service\_control\_policy\_catalog) | cloudposse/config/yaml | 1.0.2 |
 | <a name="module_this"></a> [this](#module\_this) | cloudposse/label/null | 0.25.0 |
 
 ## Resources
@@ -222,6 +402,8 @@ This component is part of a suite of single-resource components for AWS Organiza
 |------|------|
 | [aws_organizations_policy.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/organizations_policy) | resource |
 | [aws_organizations_policy_attachment.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/organizations_policy_attachment) | resource |
+| [aws_organizations_policies.service_control_policies](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/organizations_policies) | data source |
+| [aws_organizations_policy.existing](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/organizations_policy) | data source |
 
 ## Inputs
 
@@ -245,10 +427,14 @@ This component is part of a suite of single-resource components for AWS Organiza
 | <a name="input_namespace"></a> [namespace](#input\_namespace) | ID element. Usually an abbreviation of your organization name, e.g. 'eg' or 'cp', to help ensure generated IDs are globally unique | `string` | `null` | no |
 | <a name="input_policy_content"></a> [policy\_content](#input\_policy\_content) | The JSON policy document for the SCP. If not provided, policy\_statements will be used to generate the policy. | `string` | `null` | no |
 | <a name="input_policy_description"></a> [policy\_description](#input\_policy\_description) | Description of the SCP | `string` | `"Service Control Policy managed by Terraform"` | no |
+| <a name="input_policy_id"></a> [policy\_id](#input\_policy\_id) | The ID of an existing SCP to attach to the target (instead of creating a new policy).<br/>Use this to attach the same policy to multiple targets. Reference the policy\_id output<br/>from the component instance that creates the policy.<br/><br/>When set, the policy will NOT be created - only the attachment will be managed.<br/>Mutually exclusive with policy\_sid, policy\_statements, and policy\_content.<br/><br/>Example: !terraform.output aws-scp/deny-root-access policy\_id | `string` | `null` | no |
 | <a name="input_policy_name"></a> [policy\_name](#input\_policy\_name) | The name of the Service Control Policy. Defaults to module.this.id | `string` | `null` | no |
+| <a name="input_policy_name_from_sid"></a> [policy\_name\_from\_sid](#input\_policy\_name\_from\_sid) | When true and policy\_sid is set, automatically use the SID as the policy\_name if policy\_name is not explicitly provided | `bool` | `true` | no |
+| <a name="input_policy_sid"></a> [policy\_sid](#input\_policy\_sid) | The SID (Statement ID) of a policy from the loaded catalog.<br/>When set, the policy statements will be looked up from the catalog<br/>loaded via service\_control\_policies\_config\_paths.<br/><br/>Mutually exclusive with policy\_statements and policy\_content.<br/><br/>Example: "DenyLeavingOrganization" | `string` | `null` | no |
 | <a name="input_policy_statements"></a> [policy\_statements](#input\_policy\_statements) | List of policy statements to generate the SCP. Alternative to policy\_content. | <pre>list(object({<br/>    sid       = optional(string)<br/>    effect    = string<br/>    actions   = list(string)<br/>    resources = list(string)<br/>    conditions = optional(list(object({<br/>      test     = string<br/>      variable = string<br/>      values   = list(string)<br/>    })), [])<br/>  }))</pre> | `[]` | no |
 | <a name="input_regex_replace_chars"></a> [regex\_replace\_chars](#input\_regex\_replace\_chars) | Terraform regular expression (regex) string.<br/>Characters matching the regex will be removed from the ID elements.<br/>If not set, `"/[^a-zA-Z0-9-]/"` is used to remove all characters other than hyphens, letters and digits. | `string` | `null` | no |
 | <a name="input_region"></a> [region](#input\_region) | AWS Region | `string` | n/a | yes |
+| <a name="input_service_control_policies_config_paths"></a> [service\_control\_policies\_config\_paths](#input\_service\_control\_policies\_config\_paths) | List of paths to Service Control Policy catalog files.<br/>Can be local paths or remote URLs (e.g., GitHub raw URLs).<br/>Catalogs provide reusable SCP policy statements referenced by SID.<br/><br/>Example:<br/>service\_control\_policies\_config\_paths = [<br/>  "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/organization-policies.yaml"<br/>] | `list(string)` | `[]` | no |
 | <a name="input_skip_destroy"></a> [skip\_destroy](#input\_skip\_destroy) | If true, the policy will be detached from the target but not destroyed when removed from Terraform | `bool` | `false` | no |
 | <a name="input_stage"></a> [stage](#input\_stage) | ID element. Usually used to indicate role, e.g. 'prod', 'staging', 'source', 'build', 'test', 'deploy', 'release' | `string` | `null` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags (e.g. `{'BusinessUnit': 'XYZ'}`).<br/>Neither the tag keys nor the tag values will be modified by this module. | `map(string)` | `{}` | no |
@@ -261,9 +447,9 @@ This component is part of a suite of single-resource components for AWS Organiza
 |------|-------------|
 | <a name="output_attached"></a> [attached](#output\_attached) | Whether the SCP was attached to a target |
 | <a name="output_attachment_id"></a> [attachment\_id](#output\_attachment\_id) | The ID of the policy attachment |
-| <a name="output_policy_arn"></a> [policy\_arn](#output\_policy\_arn) | The ARN of the Service Control Policy |
+| <a name="output_policy_arn"></a> [policy\_arn](#output\_policy\_arn) | The ARN of the Service Control Policy (only available when creating policy, not when using existing) |
 | <a name="output_policy_id"></a> [policy\_id](#output\_policy\_id) | The ID of the Service Control Policy |
-| <a name="output_policy_name"></a> [policy\_name](#output\_policy\_name) | The name of the Service Control Policy |
+| <a name="output_policy_name"></a> [policy\_name](#output\_policy\_name) | The name of the Service Control Policy (only available when creating policy, not when using existing) |
 | <a name="output_target_id"></a> [target\_id](#output\_target\_id) | The target ID the SCP is attached to |
 <!-- markdownlint-restore -->
 
