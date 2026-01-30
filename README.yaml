@@ -108,9 +108,14 @@ usage: |-
 
   > **Note:** If you don't need import functionality, you can exclude `imports.tf` when vendoring the component.
 
-  ### Using Catalog-Based Policies (SID Lookup)
+  ### Using Catalog-Based Policies (Manager + Consumer)
 
-  Load pre-defined policies from a remote catalog by referencing them by SID (Statement ID):
+  > [!IMPORTANT]
+  > **NEW ARCHITECTURE**: Catalog-based policies now use a two-component approach:
+  > 1. **Manager** creates all catalog policies in bulk
+  > 2. **Consumer** attaches policies to targets by reference
+
+  Load pre-defined policies from a remote catalog using the manager component, then attach them using consumer components:
 
   ```yaml
   components:
@@ -124,6 +129,14 @@ usage: |-
           enabled: true
           attach_to_target: true
           skip_destroy: false
+
+      # Step 1: Manager creates ALL catalog policies
+      aws-scp/manager:
+        metadata:
+          component: aws-scp/manager
+          inherits:
+            - aws-scp/defaults
+        vars:
           # Load official CloudPosse SCP catalog (version pinned for stability)
           service_control_policies_config_paths:
             - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/cloudwatch-logs-policies.yaml"
@@ -135,16 +148,42 @@ usage: |-
             - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/s3-policies.yaml"
             - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/ec2-policies.yaml"
 
-      # Reference policy by SID
+      # Step 2: Consumer attaches specific policies to targets
       aws-scp/deny-leaving-organization:
         metadata:
-          component: aws-scp
+          component: aws-scp/consumer
           inherits:
             - aws-scp/defaults
         vars:
-          policy_sid: "DenyLeavingOrganization"
-          policy_description: "Prevents accounts from leaving the organization"
+          policy_id: !terraform.output aws-scp/manager policy_ids["DenyLeavingOrganization"]
           target_id: !terraform.state aws-organization organization_root_id
+
+      aws-scp/deny-leaving-organization-core:
+        metadata:
+          component: aws-scp/consumer
+          inherits:
+            - aws-scp/defaults
+        vars:
+          policy_id: !terraform.output aws-scp/manager policy_ids["DenyLeavingOrganization"]
+          target_id: !terraform.state aws-organizational-unit/core organizational_unit_id
+
+      aws-scp/deny-iam-root-account-core:
+        metadata:
+          component: aws-scp/consumer
+          inherits:
+            - aws-scp/defaults
+        vars:
+          policy_id: !terraform.output aws-scp/manager policy_ids["DenyIAMRootAccount"]
+          target_id: !terraform.state aws-organizational-unit/core organizational_unit_id
+
+      aws-scp/deny-iam-creating-users-core:
+        metadata:
+          component: aws-scp/consumer
+          inherits:
+            - aws-scp/defaults
+        vars:
+          policy_id: !terraform.output aws-scp/manager policy_ids["DenyIAMCreatingUsers"]
+          target_id: !terraform.state aws-organizational-unit/core organizational_unit_id
   ```
 
   #### Catalog Format
@@ -186,89 +225,110 @@ usage: |-
 
   > **Recommendation**: Pin catalog URLs to specific versions (e.g., `/0.15.1/`) for stability. Avoid using `/main/` branch URLs in production.
 
-  #### Shared Catalog Pattern (Recommended)
+  #### Complete Example: Multiple OUs
 
-  For multiple policies, define catalog defaults once and inherit:
+  For applying policies to multiple organizational units:
 
   ```yaml
   components:
     terraform:
-      # Abstract defaults with catalog
-      aws-scp/catalog-defaults:
+      # Abstract defaults
+      aws-scp/defaults:
         metadata:
           type: abstract
         vars:
+          enabled: true
+          attach_to_target: true
+          skip_destroy: false
+
+      # Manager creates all catalog policies
+      aws-scp/manager:
+        metadata:
+          component: aws-scp/manager
+          inherits:
+            - aws-scp/defaults
+        vars:
           service_control_policies_config_paths:
             - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/organization-policies.yaml"
+            - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/iam-policies.yaml"
 
-      # Policy 1
-      aws-scp/deny-leaving-org:
+      # Apply to organization root
+      aws-scp/deny-leaving-organization:
         metadata:
-          inherits: [aws-scp/catalog-defaults]
+          component: aws-scp/consumer
+          inherits:
+            - aws-scp/defaults
         vars:
-          policy_sid: "DenyLeavingOrganization"
+          policy_id: !terraform.output aws-scp/manager policy_ids["DenyLeavingOrganization"]
           target_id: !terraform.state aws-organization organization_root_id
 
-      # Policy 2
-      aws-scp/deny-root-access:
+      # Apply multiple policies to core OU
+      aws-scp/deny-leaving-organization-core:
         metadata:
-          inherits: [aws-scp/catalog-defaults]
+          component: aws-scp/consumer
+          inherits:
+            - aws-scp/defaults
         vars:
-          policy_sid: "DenyRootAccountAccess"
-          target_id: !terraform.state aws-organizational-unit/core organizational_unit_id
-  ```
-
-  #### Attaching Same Policy to Multiple Targets
-
-  Create a policy once and attach it to multiple targets:
-
-  ```yaml
-  components:
-    terraform:
-      # Master instance - creates the policy
-      aws-scp/deny-root-access:
-        metadata:
-          inherits: [aws-scp/catalog-defaults]
-        vars:
-          policy_sid: "DenyRootAccountAccess"
+          policy_id: !terraform.output aws-scp/manager policy_ids["DenyLeavingOrganization"]
           target_id: !terraform.state aws-organizational-unit/core organizational_unit_id
 
-      # Attachment instances - reference the existing policy
-      aws-scp/deny-root-access-plat:
+      aws-scp/deny-iam-root-account-core:
         metadata:
-          component: aws-scp
+          component: aws-scp/consumer
+          inherits:
+            - aws-scp/defaults
         vars:
-          # Reference the policy created by the master instance
-          policy_id: !terraform.output aws-scp/deny-root-access policy_id
+          policy_id: !terraform.output aws-scp/manager policy_ids["DenyIAMRootAccount"]
+          target_id: !terraform.state aws-organizational-unit/core organizational_unit_id
+
+      # Apply to platform OU
+      aws-scp/deny-leaving-organization-plat:
+        metadata:
+          component: aws-scp/consumer
+          inherits:
+            - aws-scp/defaults
+        vars:
+          policy_id: !terraform.output aws-scp/manager policy_ids["DenyLeavingOrganization"]
           target_id: !terraform.state aws-organizational-unit/plat organizational_unit_id
-
-      aws-scp/deny-root-access-sandbox:
-        metadata:
-          component: aws-scp
-        vars:
-          policy_id: !terraform.output aws-scp/deny-root-access policy_id
-          target_id: !terraform.state aws-organizational-unit/sandbox organizational_unit_id
   ```
 
-  > **Note**: When using `policy_id`, the policy is NOT created - only the attachment is managed. This prevents duplicate policies with the same SID.
+  #### Benefits of Manager + Consumer Architecture
+
+  - **Bulk Creation**: Manager creates all catalog policies once using `for_each`
+  - **Reusability**: Attach the same policy to multiple targets without duplication
+  - **No Oscillation**: Eliminates the data source lookup bug from previous versions
+  - **Clear Separation**: Policy creation (manager) vs policy attachment (consumer)
+  - **Better State Management**: Independent lifecycles for policies and attachments
+
+  > **Note**: The consumer component does NOT create policies when `policy_id` is provided - it only manages attachments.
 
   #### Mixed Approach (Catalog + Custom)
 
-  You can use both catalog policies and custom policies in the same configuration:
+  You can combine catalog policies (via manager) with custom policies (via consumer):
 
   ```yaml
   components:
     terraform:
-      # Catalog-based policy
-      aws-scp/deny-leaving-org:
+      # Manager for catalog policies
+      aws-scp/manager:
+        metadata:
+          component: aws-scp/manager
         vars:
           service_control_policies_config_paths:
             - "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/organization-policies.yaml"
-          policy_sid: "DenyLeavingOrganization"
+
+      # Consumer attaching catalog policy
+      aws-scp/deny-leaving-org:
+        metadata:
+          component: aws-scp/consumer
+        vars:
+          policy_id: !terraform.output aws-scp/manager policy_ids["DenyLeavingOrganization"]
           target_id: !terraform.state aws-organization organization_root_id
 
-      # Custom policy (using policy_statements)
+      # Consumer creating custom policy
       aws-scp/custom-policy:
+        metadata:
+          component: aws-scp/consumer
         vars:
           policy_name: "CustomDenyEC2Large"
           policy_statements:
