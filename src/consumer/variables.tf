@@ -58,14 +58,24 @@ variable "attach_to_target" {
 variable "service_control_policies_config_paths" {
   type        = list(string)
   description = <<-EOT
-    List of paths to Service Control Policy catalog files.
-    Can be local paths or remote URLs (e.g., GitHub raw URLs).
-    Catalogs provide reusable SCP policy statements referenced by SID.
+    DEPRECATED: Use the manager component (type: manager) for catalog-based policy creation.
+
+    The consumer component does not support loading catalogs. To use catalog policies:
+    1. Deploy a manager component instance to create policies from catalogs
+    2. Reference the created policies via policy_id in consumer components
 
     Example:
-    service_control_policies_config_paths = [
-      "https://raw.githubusercontent.com/cloudposse/terraform-aws-service-control-policies/0.15.1/catalog/organization-policies.yaml"
-    ]
+      # Manager (creates catalog policies)
+      component: aws-scp
+      type: manager
+      vars:
+        service_control_policies_config_paths: [...]
+
+      # Consumer (attaches catalog policies)
+      component: aws-scp
+      type: consumer
+      vars:
+        policy_id: !terraform.output scp-manager policy_ids["DenyLeavingOrganization"]
     EOT
   default     = []
 }
@@ -73,21 +83,24 @@ variable "service_control_policies_config_paths" {
 variable "policy_sid" {
   type        = string
   description = <<-EOT
-    The SID (Statement ID) of a policy from the loaded catalog.
-    When set, the policy statements will be looked up from the catalog
-    loaded via service_control_policies_config_paths.
+    DEPRECATED: Not supported in consumer component. Use manager component to create catalog policies.
 
-    Mutually exclusive with policy_statements and policy_content.
+    To use a catalog policy by SID:
+    1. Deploy manager component with service_control_policies_config_paths
+    2. Reference the created policy via policy_id in this consumer component
 
-    Example: "DenyLeavingOrganization"
+    Example:
+      policy_id = !terraform.output scp-manager policy_ids["DenyLeavingOrganization"]
+
+    Setting this variable will cause a precondition error with migration instructions.
     EOT
   default     = null
 }
 
 variable "policy_name_from_sid" {
   type        = bool
-  description = "When true and policy_sid is set, automatically use the SID as the policy_name if policy_name is not explicitly provided"
-  default     = true
+  description = "DEPRECATED: Not applicable in consumer component. This variable is ignored."
+  default     = false
 }
 
 variable "policy_id" {
@@ -95,12 +108,16 @@ variable "policy_id" {
   description = <<-EOT
     The ID of an existing SCP to attach to the target (instead of creating a new policy).
     Use this to attach the same policy to multiple targets. Reference the policy_id output
-    from the component instance that creates the policy.
+    from the manager component or another policy-creating component.
 
     When set, the policy will NOT be created - only the attachment will be managed.
-    Mutually exclusive with policy_sid, policy_statements, and policy_content.
+    Mutually exclusive with policy_statements and policy_content.
 
-    Example: !terraform.output aws-scp/deny-root-access policy_id
+    Example (from manager):
+      policy_id = !terraform.output scp-manager policy_ids["DenyLeavingOrganization"]
+
+    Example (from another consumer):
+      policy_id = !terraform.output scp-custom-policy policy_id
     EOT
   default     = null
 }

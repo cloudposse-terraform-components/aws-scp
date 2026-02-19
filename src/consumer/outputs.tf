@@ -1,5 +1,5 @@
 output "policy_id" {
-  value       = local.use_existing_policy ? local.final_policy_id : try(aws_organizations_policy.this[0].id, null)
+  value       = local.use_existing_policy ? var.policy_id : try(aws_organizations_policy.this[0].id, null)
   description = "The ID of the Service Control Policy"
 }
 
