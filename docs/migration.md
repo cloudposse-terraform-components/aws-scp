@@ -69,7 +69,8 @@ components:
               - organizations:LeaveOrganization
             resources:
               - "*"
-        target_id: "r-xxxx"  # Attach to root
+        target_ids:
+          - "r-xxxx"  # Attach to root
         import_policy_id: "p-abc12345"
 
     # Deny Root Account Access SCP
@@ -90,7 +91,8 @@ components:
               StringLike:
                 "aws:PrincipalArn":
                   - "arn:aws:iam::*:root"
-        target_id: "ou-xxxx-11111111"  # Attach to core OU
+        target_ids:
+          - "ou-xxxx-11111111"  # Attach to core OU
         import_policy_id: "p-def67890"
 ```
 
@@ -187,17 +189,27 @@ vars:
 # Attach to organization root (all accounts)
 aws-scp/org-wide-policy:
   vars:
-    target_id: "r-xxxx"
+    target_ids:
+      - "r-xxxx"
 
 # Attach to specific OU
 aws-scp/production-policy:
   vars:
-    target_id: !terraform.output aws-organizational-unit/plat organizational_unit_id
+    target_ids:
+      - !terraform.output aws-organizational-unit/plat organizational_unit_id
+
+# Attach to multiple targets
+aws-scp/multi-target-policy:
+  vars:
+    target_ids:
+      - !terraform.output aws-organizational-unit/plat organizational_unit_id
+      - !terraform.output aws-organizational-unit/core organizational_unit_id
 
 # Attach to specific account
 aws-scp/account-specific-policy:
   vars:
-    target_id: !terraform.output aws-account/core-security account_id
+    target_ids:
+      - !terraform.output aws-account/core-security account_id
 
 # Create policy without attachment
 aws-scp/unattached-policy:

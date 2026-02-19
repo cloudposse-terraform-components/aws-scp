@@ -2,6 +2,36 @@
 
 All notable changes to this component will be documented in this file.
 
+## [2.1.0] - 2026-02-19
+
+### Breaking Changes
+
+- **`target_id` renamed to `target_ids`**: The variable is now a `list(string)` instead of a `string`, allowing a single SCP to be attached to multiple targets (organization roots, OUs, or accounts). The attachment resource now uses `for_each` instead of `count`.
+- **Output changes**: `target_id` renamed to `target_ids`, `attachment_id` renamed to `attachment_ids` (now a map of target ID to attachment ID).
+
+### Migration
+
+Update your stack configuration:
+
+```yaml
+# Before
+vars:
+  target_id: "ou-xxxx-11111111"
+
+# After
+vars:
+  target_ids:
+    - "ou-xxxx-11111111"
+```
+
+After updating the configuration, you will need to move state for existing attachments:
+
+```bash
+atmos terraform state mv aws-scp/<name> -s <stack> \
+  'aws_organizations_policy_attachment.this[0]' \
+  'aws_organizations_policy_attachment.this["ou-xxxx-11111111"]'
+```
+
 ## [2.0.0] - 2026-01-06
 
 ### Breaking Changes

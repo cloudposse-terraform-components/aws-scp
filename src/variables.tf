@@ -37,10 +37,10 @@ variable "policy_statements" {
   default     = []
 }
 
-variable "target_id" {
-  type        = string
-  description = "The ID of the organization root, OU, or account to attach the SCP to"
-  default     = null
+variable "target_ids" {
+  type        = list(string)
+  description = "The IDs of the organization roots, OUs, or accounts to attach the SCP to"
+  default     = []
 }
 
 variable "skip_destroy" {

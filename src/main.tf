@@ -42,8 +42,8 @@ resource "aws_organizations_policy" "this" {
 }
 
 resource "aws_organizations_policy_attachment" "this" {
-  count = local.enabled && var.attach_to_target && var.target_id != null ? 1 : 0
+  for_each = local.enabled && var.attach_to_target ? toset(var.target_ids) : toset([])
 
   policy_id = aws_organizations_policy.this[0].id
-  target_id = var.target_id
+  target_id = each.value
 }
