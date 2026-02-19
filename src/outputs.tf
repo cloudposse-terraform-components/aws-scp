@@ -14,7 +14,7 @@ output "policy_name" {
 }
 
 output "target_ids" {
-  value       = var.target_ids
+  value       = keys(aws_organizations_policy_attachment.this)
   description = "The target IDs the SCP is attached to"
 }
 
@@ -24,6 +24,6 @@ output "attachment_ids" {
 }
 
 output "attached" {
-  value       = local.enabled && var.attach_to_target && length(var.target_ids) > 0
+  value       = length(aws_organizations_policy_attachment.this) > 0
   description = "Whether the SCP was attached to any targets"
 }

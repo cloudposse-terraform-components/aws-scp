@@ -24,7 +24,7 @@ vars:
     - "ou-xxxx-11111111"
 ```
 
-After updating the configuration, you will need to move state for existing attachments:
+After updating the configuration, you must move state for existing attachments **before running `terraform apply`** to prevent Terraform from planning a destroy/create cycle that would momentarily detach the SCP from its target.
 
 ```bash
 atmos terraform state mv aws-scp/<name> -s <stack> \
