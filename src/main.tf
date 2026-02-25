@@ -14,9 +14,10 @@ locals {
       for stmt in var.policy_statements : merge(
         {
           Effect   = stmt.effect
-          Action   = stmt.actions
           Resource = stmt.resources
         },
+        length(stmt.actions) > 0 ? { Action = stmt.actions } : {},
+        length(stmt.not_actions) > 0 ? { NotAction = stmt.not_actions } : {},
         stmt.sid != null ? { Sid = stmt.sid } : {},
         length(coalesce(stmt.conditions, [])) > 0 ? {
           Condition = {
@@ -52,4 +53,11 @@ resource "aws_organizations_policy_attachment" "this" {
 
   policy_id = aws_organizations_policy.this[0].id
   target_id = each.value
+
+  lifecycle {
+    precondition {
+      condition     = !var.attach_to_target || length(local.all_target_ids) > 0
+      error_message = "target_ids must not be empty when attach_to_target is true. This can happen when a !terraform.output reference resolves to null."
+    }
+  }
 }

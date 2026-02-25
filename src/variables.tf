@@ -23,18 +23,34 @@ variable "policy_content" {
 
 variable "policy_statements" {
   type = list(object({
-    sid       = optional(string)
-    effect    = string
-    actions   = list(string)
-    resources = list(string)
+    sid         = optional(string)
+    effect      = string
+    actions     = optional(list(string), [])
+    not_actions = optional(list(string), [])
+    resources   = list(string)
     conditions = optional(list(object({
       test     = string
       variable = string
       values   = list(string)
     })), [])
   }))
-  description = "List of policy statements to generate the SCP. Alternative to policy_content."
+  description = "List of policy statements to generate the SCP. Alternative to policy_content. Each statement must specify either 'actions' or 'not_actions', but not both."
   default     = []
+
+  validation {
+    condition = alltrue([
+      for stmt in var.policy_statements : stmt.effect != null
+    ])
+    error_message = "Each entry in policy_statements must not be null. This can happen when an !include path is incorrect or the referenced file does not exist."
+  }
+
+  validation {
+    condition = alltrue([
+      for stmt in var.policy_statements :
+      (length(stmt.actions) > 0) != (length(stmt.not_actions) > 0)
+    ])
+    error_message = "Each policy statement must specify either 'actions' or 'not_actions', but not both."
+  }
 }
 
 variable "target_ids" {
@@ -44,12 +60,17 @@ variable "target_ids" {
 
   validation {
     condition     = alltrue([for id in var.target_ids : id != ""])
-    error_message = "All target IDs must be non-empty strings."
+    error_message = "All target IDs must be non-empty strings. This can happen when a !terraform.output reference resolves to null."
   }
 
   validation {
     condition     = length(var.target_ids) == length(toset(var.target_ids))
     error_message = "Target IDs must be unique. Duplicate entries are not allowed."
+  }
+
+  validation {
+    condition     = alltrue([for id in var.target_ids : can(regex("^(r-|ou-|[0-9]{12}$)", id))])
+    error_message = "Each target ID must be an organization root (r-), OU (ou-), or 12-digit account ID."
   }
 }
 

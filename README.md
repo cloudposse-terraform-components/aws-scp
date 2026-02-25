@@ -61,7 +61,107 @@ this component follows the single-resource pattern - it only manages a single SC
 
 **Stack Level**: Global (deployed in the management/root account)
 
-### Using policy_statements (recommended)
+### Using the SCP Policy Catalog (recommended)
+
+This component ships with a `catalog/` directory of pre-built SCP policies based on
+[CloudPosse terraform-aws-service-control-policies v0.15.1](https://github.com/cloudposse/terraform-aws-service-control-policies).
+Each file contains a single policy statement that maps to one SCP. Use Atmos `!include` to
+reference catalog files directly (local path) or from a remote source:
+
+**Local include** (when the catalog is vendored with the component):
+
+```yaml
+components:
+  terraform:
+    aws-scp/iam-restrictions:
+      metadata:
+        component: aws-scp
+      vars:
+        enabled: true
+        policy_name: IAMRestrictions
+        policy_description: "Restrict IAM user creation and deny root account access"
+        policy_statements:
+          - !include catalog/DenyIAMCreatingUsers.yaml
+          - !include catalog/DenyIAMRootAccount.yaml
+          - !include catalog/DenyLeavingOrganization.yaml
+        target_id: !terraform.output aws-organizational-unit/core organizational_unit_id
+```
+
+**Remote include** (reference the catalog directly from GitHub):
+
+```yaml
+components:
+  terraform:
+    aws-scp/iam-restrictions:
+      metadata:
+        component: aws-scp
+      vars:
+        enabled: true
+        policy_name: IAMRestrictions
+        policy_statements:
+          - !include "https://github.com/cloudposse-terraform-components/aws-scp/blob/main/catalog/DenyIAMCreatingUsers.yaml"
+          - !include "https://github.com/cloudposse-terraform-components/aws-scp/blob/main/catalog/DenyIAMRootAccount.yaml"
+          - !include "https://github.com/cloudposse-terraform-components/aws-scp/blob/main/catalog/DenyLeavingOrganization.yaml"
+        target_id: !terraform.output aws-organizational-unit/core organizational_unit_id
+```
+
+Atmos supports multiple remote protocols including `https://`, `github://`, `s3://`, and `gcs://`
+via [go-getter](https://atmos.tools/functions/yaml/include#remote-sources). Standard GitHub URLs
+(with `/blob/` or `/tree/`) are automatically converted to raw content URLs.
+
+Available catalog files:
+
+**Account & Organization:**
+- `DenyAccountRegionDisableEnable.yaml` - Deny enabling/disabling AWS regions
+- `DenyLeavingOrganization.yaml` - Prevent leaving the organization
+- `DenyRootAccountAccess.yaml` - Deny all actions by root account
+- `DenyAllAccess.yaml` - Deny all access (quarantine)
+
+**IAM:**
+- `DenyIAMCreatingUsers.yaml` - Deny IAM user and access key creation
+- `DenyIAMRolesChanges.yaml` - Deny IAM role modifications
+- `DenyIAMNoMFA.yaml` - Require MFA for most actions (uses `not_actions`)
+- `DenyIAMRootAccount.yaml` - Deny all actions by IAM root account
+
+**EC2 & Compute:**
+- `DenyEC2NonNitroInstances.yaml` - Require Nitro-based instance types
+- `DenyEC2InstancesWithoutEncryptionInTransit.yaml` - Require encryption-in-transit capable instances
+- `DenyEC2PublicAMI.yaml` - Deny launching from public AMIs
+- `DenyEC2AssociatePublicIp.yaml` - Deny public IP assignment
+- `DenyEC2WithNoIMDSv2.yaml` - Require IMDSv2
+- `DenyEC2ApiWithNoMFA.yaml` - Require MFA for stop/terminate
+- `RequireEBSEncryption.yaml` - Require EBS volume encryption
+- `DenyLambdaWithoutVpc.yaml` - Require VPC for Lambda functions
+
+**Storage & Database:**
+- `DenyS3DeleteBucketsAndObjects.yaml` - Prevent S3 bucket/object deletion
+- `DenyS3BucketsPublicAccess.yaml` - Prevent modifying S3 public access blocks
+- `DenyS3IncorrectEncryptionHeader.yaml` - Require S3 server-side encryption
+- `DenyS3UnEncryptedObjectUploads.yaml` - Deny unencrypted S3 uploads
+- `DenyRDSUnencrypted.yaml` - Require RDS encryption
+- `DenyDeletingKMSKeys.yaml` - Prevent KMS key deletion
+
+**Networking:**
+- `DenyVpcDeletingFlowLogs.yaml` - Protect VPC flow logs
+- `DenyVpcInternetAccess.yaml` - Deny internet gateway and VPC peering creation
+- `DenyRoute53DeletingZones.yaml` - Prevent hosted zone deletion
+
+**Security & Monitoring:**
+- `DenyCloudTrailActions.yaml` - Protect CloudTrail configuration
+- `DenyCloudWatchDeletingLogs.yaml` - Protect CloudWatch log groups
+- `DenyDisablingCloudWatch.yaml` - Protect CloudWatch alarms and dashboards
+- `DenyConfigRulesDelete.yaml` - Protect AWS Config rules and recorders
+- `DenyGuardDutyDisassociation.yaml` - Prevent GuardDuty disassociation
+- `DenyDisablingGuardDuty.yaml` - Protect GuardDuty configuration
+- `DenyShieldlRemoval.yaml` - Prevent Shield protection removal
+
+**SageMaker:**
+- `DenySagemakerDirectInternetNotebook.yaml` - Deny direct internet for notebooks
+- `DenySagemakerWithoutRootAccess.yaml` - Require root access for notebooks
+- `DenySagemakerWithoutInterContainerEncrypt.yaml` - Require inter-container encryption
+- `DenyeSagemakerWithoutVpcDomain.yaml` - Deny public internet domains
+
+### Using inline policy_statements
 
 ```yaml
 components:
@@ -158,11 +258,14 @@ After successful import, you can remove the `import_policy_id` variable.
 
 ## Policy Statements Format
 
+Each statement must specify either `actions` or `not_actions`, but not both.
+`not_actions` maps to the IAM `NotAction` element, which matches all actions except the listed ones.
+
 ```yaml
 policy_statements:
   - sid: "OptionalStatementId"
     effect: "Deny"  # or "Allow"
-    actions:
+    actions:         # use actions OR not_actions
       - "service:Action"
     resources:
       - "*"
@@ -171,6 +274,14 @@ policy_statements:
         variable: "aws:RequestedRegion"
         values:
           - "us-east-1"
+
+  - sid: "ExampleWithNotActions"
+    effect: "Deny"
+    not_actions:     # matches everything EXCEPT these actions
+      - "iam:CreateVirtualMFADevice"
+      - "iam:EnableMFADevice"
+    resources:
+      - "*"
 ```
 
 ## Related Components
@@ -248,7 +359,7 @@ This component is part of a suite of single-resource components for AWS Organiza
 | <a name="input_policy_content"></a> [policy\_content](#input\_policy\_content) | The JSON policy document for the SCP. If not provided, policy\_statements will be used to generate the policy. | `string` | `null` | no |
 | <a name="input_policy_description"></a> [policy\_description](#input\_policy\_description) | Description of the SCP | `string` | `"Service Control Policy managed by Terraform"` | no |
 | <a name="input_policy_name"></a> [policy\_name](#input\_policy\_name) | The name of the Service Control Policy. Defaults to module.this.id | `string` | `null` | no |
-| <a name="input_policy_statements"></a> [policy\_statements](#input\_policy\_statements) | List of policy statements to generate the SCP. Alternative to policy\_content. | <pre>list(object({<br/>    sid       = optional(string)<br/>    effect    = string<br/>    actions   = list(string)<br/>    resources = list(string)<br/>    conditions = optional(list(object({<br/>      test     = string<br/>      variable = string<br/>      values   = list(string)<br/>    })), [])<br/>  }))</pre> | `[]` | no |
+| <a name="input_policy_statements"></a> [policy\_statements](#input\_policy\_statements) | List of policy statements to generate the SCP. Alternative to policy\_content. Each statement must specify either 'actions' or 'not\_actions', but not both. | <pre>list(object({<br/>    sid         = optional(string)<br/>    effect      = string<br/>    actions     = optional(list(string), [])<br/>    not_actions = optional(list(string), [])<br/>    resources   = list(string)<br/>    conditions = optional(list(object({<br/>      test     = string<br/>      variable = string<br/>      values   = list(string)<br/>    })), [])<br/>  }))</pre> | `[]` | no |
 | <a name="input_regex_replace_chars"></a> [regex\_replace\_chars](#input\_regex\_replace\_chars) | Terraform regular expression (regex) string.<br/>Characters matching the regex will be removed from the ID elements.<br/>If not set, `"/[^a-zA-Z0-9-]/"` is used to remove all characters other than hyphens, letters and digits. | `string` | `null` | no |
 | <a name="input_region"></a> [region](#input\_region) | AWS Region | `string` | n/a | yes |
 | <a name="input_skip_destroy"></a> [skip\_destroy](#input\_skip\_destroy) | If true, the policy will be detached from the target but not destroyed when removed from Terraform | `bool` | `false` | no |
