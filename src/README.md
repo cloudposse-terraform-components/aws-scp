@@ -203,6 +203,7 @@ This component is part of a suite of single-resource components for AWS Organiza
 | <a name="input_skip_destroy"></a> [skip\_destroy](#input\_skip\_destroy) | If true, the policy will be detached from the target but not destroyed when removed from Terraform | `bool` | `false` | no |
 | <a name="input_stage"></a> [stage](#input\_stage) | ID element. Usually used to indicate role, e.g. 'prod', 'staging', 'source', 'build', 'test', 'deploy', 'release' | `string` | `null` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags (e.g. `{'BusinessUnit': 'XYZ'}`).<br/>Neither the tag keys nor the tag values will be modified by this module. | `map(string)` | `{}` | no |
+| <a name="input_target_id"></a> [target\_id](#input\_target\_id) | DEPRECATED: Use `target_ids` instead. The ID of the organization root, OU, or account to attach the SCP to. | `string` | `null` | no |
 | <a name="input_target_ids"></a> [target\_ids](#input\_target\_ids) | The IDs of the organization roots, OUs, or accounts to attach the SCP to | `list(string)` | `[]` | no |
 | <a name="input_tenant"></a> [tenant](#input\_tenant) | ID element \_(Rarely used, not included by default)\_. A customer identifier, indicating who this instance of a resource is for | `string` | `null` | no |
 
