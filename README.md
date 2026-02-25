@@ -73,14 +73,17 @@ reference catalog files directly (local path) or from a remote source:
 ```yaml
 components:
   terraform:
-    aws-scp/deny-leaving-org:
+    aws-scp/iam-restrictions:
       metadata:
         component: aws-scp
       vars:
         enabled: true
-        policy_name: DenyLeavingOrganization
-        policy_description: "Prevents accounts from leaving the organization"
-        policy_statements: !include catalog/deny-leaving-organization.yaml
+        policy_name: IAMRestrictions
+        policy_description: "Restrict IAM user creation and deny root account access"
+        policy_statements:
+          - !include catalog/DenyIAMCreatingUsers.yaml
+          - !include catalog/DenyIAMRootAccount.yaml
+          - !include catalog/DenyLeavingOrganization.yaml
         target_id: !terraform.output aws-organizational-unit/core organizational_unit_id
 ```
 
@@ -89,13 +92,16 @@ components:
 ```yaml
 components:
   terraform:
-    aws-scp/deny-leaving-org:
+    aws-scp/iam-restrictions:
       metadata:
         component: aws-scp
       vars:
         enabled: true
-        policy_name: DenyLeavingOrganization
-        policy_statements: !include https://raw.githubusercontent.com/cloudposse-terraform-components/aws-scp/main/catalog/deny-leaving-organization.yaml
+        policy_name: IAMRestrictions
+        policy_statements:
+          - !include "https://github.com/cloudposse-terraform-components/aws-scp/blob/main/catalog/DenyIAMCreatingUsers.yaml"
+          - !include "https://github.com/cloudposse-terraform-components/aws-scp/blob/main/catalog/DenyIAMRootAccount.yaml"
+          - !include "https://github.com/cloudposse-terraform-components/aws-scp/blob/main/catalog/DenyLeavingOrganization.yaml"
         target_id: !terraform.output aws-organizational-unit/core organizational_unit_id
 ```
 
@@ -106,54 +112,54 @@ via [go-getter](https://atmos.tools/functions/yaml/include#remote-sources). Stan
 Available catalog files:
 
 **Account & Organization:**
-- `deny-account-region-disable-enable.yaml` - Deny enabling/disabling AWS regions
-- `deny-leaving-organization.yaml` - Prevent leaving the organization
-- `deny-root-account-access.yaml` - Deny all actions by root account
-- `deny-all-access.yaml` - Deny all access (quarantine)
+- `DenyAccountRegionDisableEnable.yaml` - Deny enabling/disabling AWS regions
+- `DenyLeavingOrganization.yaml` - Prevent leaving the organization
+- `DenyRootAccountAccess.yaml` - Deny all actions by root account
+- `DenyAllAccess.yaml` - Deny all access (quarantine)
 
 **IAM:**
-- `deny-iam-creating-users.yaml` - Deny IAM user and access key creation
-- `deny-iam-roles-changes.yaml` - Deny IAM role modifications
-- `deny-iam-no-mfa.yaml` - Require MFA for most actions (uses `not_actions`)
-- `deny-iam-root-account.yaml` - Deny all actions by IAM root account
+- `DenyIAMCreatingUsers.yaml` - Deny IAM user and access key creation
+- `DenyIAMRolesChanges.yaml` - Deny IAM role modifications
+- `DenyIAMNoMFA.yaml` - Require MFA for most actions (uses `not_actions`)
+- `DenyIAMRootAccount.yaml` - Deny all actions by IAM root account
 
 **EC2 & Compute:**
-- `deny-ec2-non-nitro-instances.yaml` - Require Nitro-based instance types
-- `deny-ec2-instances-without-encryption-in-transit.yaml` - Require encryption-in-transit capable instances
-- `deny-ec2-public-ami.yaml` - Deny launching from public AMIs
-- `deny-ec2-associate-public-ip.yaml` - Deny public IP assignment
-- `deny-ec2-with-no-imdsv2.yaml` - Require IMDSv2
-- `deny-ec2-api-with-no-mfa.yaml` - Require MFA for stop/terminate
-- `require-ebs-encryption.yaml` - Require EBS volume encryption
-- `deny-lambda-without-vpc.yaml` - Require VPC for Lambda functions
+- `DenyEC2NonNitroInstances.yaml` - Require Nitro-based instance types
+- `DenyEC2InstancesWithoutEncryptionInTransit.yaml` - Require encryption-in-transit capable instances
+- `DenyEC2PublicAMI.yaml` - Deny launching from public AMIs
+- `DenyEC2AssociatePublicIp.yaml` - Deny public IP assignment
+- `DenyEC2WithNoIMDSv2.yaml` - Require IMDSv2
+- `DenyEC2ApiWithNoMFA.yaml` - Require MFA for stop/terminate
+- `RequireEBSEncryption.yaml` - Require EBS volume encryption
+- `DenyLambdaWithoutVpc.yaml` - Require VPC for Lambda functions
 
 **Storage & Database:**
-- `deny-s3-delete-buckets-and-objects.yaml` - Prevent S3 bucket/object deletion
-- `deny-s3-buckets-public-access.yaml` - Prevent modifying S3 public access blocks
-- `deny-s3-incorrect-encryption-header.yaml` - Require S3 server-side encryption
-- `deny-s3-unencrypted-object-uploads.yaml` - Deny unencrypted S3 uploads
-- `deny-rds-unencrypted.yaml` - Require RDS encryption
-- `deny-deleting-kms-keys.yaml` - Prevent KMS key deletion
+- `DenyS3DeleteBucketsAndObjects.yaml` - Prevent S3 bucket/object deletion
+- `DenyS3BucketsPublicAccess.yaml` - Prevent modifying S3 public access blocks
+- `DenyS3IncorrectEncryptionHeader.yaml` - Require S3 server-side encryption
+- `DenyS3UnEncryptedObjectUploads.yaml` - Deny unencrypted S3 uploads
+- `DenyRDSUnencrypted.yaml` - Require RDS encryption
+- `DenyDeletingKMSKeys.yaml` - Prevent KMS key deletion
 
 **Networking:**
-- `deny-vpc-deleting-flow-logs.yaml` - Protect VPC flow logs
-- `deny-vpc-internet-access.yaml` - Deny internet gateway and VPC peering creation
-- `deny-route53-deleting-zones.yaml` - Prevent hosted zone deletion
+- `DenyVpcDeletingFlowLogs.yaml` - Protect VPC flow logs
+- `DenyVpcInternetAccess.yaml` - Deny internet gateway and VPC peering creation
+- `DenyRoute53DeletingZones.yaml` - Prevent hosted zone deletion
 
 **Security & Monitoring:**
-- `deny-cloudtrail-actions.yaml` - Protect CloudTrail configuration
-- `deny-cloudwatch-deleting-logs.yaml` - Protect CloudWatch log groups
-- `deny-disabling-cloudwatch.yaml` - Protect CloudWatch alarms and dashboards
-- `deny-config-rules-delete.yaml` - Protect AWS Config rules and recorders
-- `deny-guardduty-disassociation.yaml` - Prevent GuardDuty disassociation
-- `deny-disabling-guardduty.yaml` - Protect GuardDuty configuration
-- `deny-shield-removal.yaml` - Prevent Shield protection removal
+- `DenyCloudTrailActions.yaml` - Protect CloudTrail configuration
+- `DenyCloudWatchDeletingLogs.yaml` - Protect CloudWatch log groups
+- `DenyDisablingCloudWatch.yaml` - Protect CloudWatch alarms and dashboards
+- `DenyConfigRulesDelete.yaml` - Protect AWS Config rules and recorders
+- `DenyGuardDutyDisassociation.yaml` - Prevent GuardDuty disassociation
+- `DenyDisablingGuardDuty.yaml` - Protect GuardDuty configuration
+- `DenyShieldlRemoval.yaml` - Prevent Shield protection removal
 
 **SageMaker:**
-- `deny-sagemaker-direct-internet-notebook.yaml` - Deny direct internet for notebooks
-- `deny-sagemaker-without-root-access.yaml` - Require root access for notebooks
-- `deny-sagemaker-without-inter-container-encrypt.yaml` - Require inter-container encryption
-- `deny-sagemaker-without-vpc-domain.yaml` - Deny public internet domains
+- `DenySagemakerDirectInternetNotebook.yaml` - Deny direct internet for notebooks
+- `DenySagemakerWithoutRootAccess.yaml` - Require root access for notebooks
+- `DenySagemakerWithoutInterContainerEncrypt.yaml` - Require inter-container encryption
+- `DenyeSagemakerWithoutVpcDomain.yaml` - Deny public internet domains
 
 ### Using inline policy_statements
 
