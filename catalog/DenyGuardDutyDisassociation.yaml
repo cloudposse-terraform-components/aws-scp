@@ -1,6 +1,6 @@
-- sid: "DenyGuardDutyDisassociation"
-  effect: "Deny"
-  actions:
-    - "guardduty:DisassociateFromMasterAccount"
-  resources:
-    - "*"
+sid: "DenyGuardDutyDisassociation"
+effect: "Deny"
+actions:
+  - "guardduty:DisassociateFromMasterAccount"
+resources:
+  - "*"

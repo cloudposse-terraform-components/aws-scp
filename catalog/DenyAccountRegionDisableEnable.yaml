@@ -1,7 +1,7 @@
-- sid: "DenyAccountRegionDisableEnable"
-  effect: "Deny"
-  actions:
-    - "account:EnableRegion"
-    - "account:DisableRegion"
-  resources:
-    - "*"
+sid: "DenyAccountRegionDisableEnable"
+effect: "Deny"
+actions:
+  - "account:EnableRegion"
+  - "account:DisableRegion"
+resources:
+  - "*"

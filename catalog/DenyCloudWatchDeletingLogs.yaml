@@ -1,8 +1,8 @@
-- sid: "DenyCloudWatchDeletingLogs"
-  effect: "Deny"
-  actions:
-    - "ec2:DeleteFlowLogs"
-    - "logs:DeleteLogGroup"
-    - "logs:DeleteLogStream"
-  resources:
-    - "*"
+sid: "DenyCloudWatchDeletingLogs"
+effect: "Deny"
+actions:
+  - "ec2:DeleteFlowLogs"
+  - "logs:DeleteLogGroup"
+  - "logs:DeleteLogStream"
+resources:
+  - "*"

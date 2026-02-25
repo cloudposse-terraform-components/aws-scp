@@ -27,14 +27,17 @@ usage: |-
   ```yaml
   components:
     terraform:
-      aws-scp/deny-leaving-org:
+      aws-scp/iam-restrictions:
         metadata:
           component: aws-scp
         vars:
           enabled: true
-          policy_name: DenyLeavingOrganization
-          policy_description: "Prevents accounts from leaving the organization"
-          policy_statements: !include catalog/DenyLeavingOrganization.yaml
+          policy_name: IAMRestrictions
+          policy_description: "Restrict IAM user creation and deny root account access"
+          policy_statements:
+            - !include catalog/DenyIAMCreatingUsers.yaml
+            - !include catalog/DenyIAMRootAccount.yaml
+            - !include catalog/DenyLeavingOrganization.yaml
           target_id: !terraform.output aws-organizational-unit/core organizational_unit_id
   ```
 
@@ -43,13 +46,16 @@ usage: |-
   ```yaml
   components:
     terraform:
-      aws-scp/deny-leaving-org:
+      aws-scp/iam-restrictions:
         metadata:
           component: aws-scp
         vars:
           enabled: true
-          policy_name: DenyLeavingOrganization
-          policy_statements: !include https://raw.githubusercontent.com/cloudposse-terraform-components/aws-scp/main/catalog/DenyLeavingOrganization.yaml
+          policy_name: IAMRestrictions
+          policy_statements:
+            - !include "https://github.com/cloudposse-terraform-components/aws-scp/blob/main/catalog/DenyIAMCreatingUsers.yaml"
+            - !include "https://github.com/cloudposse-terraform-components/aws-scp/blob/main/catalog/DenyIAMRootAccount.yaml"
+            - !include "https://github.com/cloudposse-terraform-components/aws-scp/blob/main/catalog/DenyLeavingOrganization.yaml"
           target_id: !terraform.output aws-organizational-unit/core organizational_unit_id
   ```
 
