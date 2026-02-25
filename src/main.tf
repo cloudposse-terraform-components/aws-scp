@@ -47,4 +47,11 @@ resource "aws_organizations_policy_attachment" "this" {
 
   policy_id = aws_organizations_policy.this[0].id
   target_id = var.target_id
+
+  lifecycle {
+    precondition {
+      condition     = !var.attach_to_target || var.target_id != null
+      error_message = "target_id must be set when attach_to_target is true. This can happen when a !terraform.output reference resolves to null."
+    }
+  }
 }

@@ -39,6 +39,13 @@ variable "policy_statements" {
 
   validation {
     condition = alltrue([
+      for stmt in var.policy_statements : stmt.effect != null
+    ])
+    error_message = "Each entry in policy_statements must not be null. This can happen when an !include path is incorrect or the referenced file does not exist."
+  }
+
+  validation {
+    condition = alltrue([
       for stmt in var.policy_statements :
       (length(stmt.actions) > 0) != (length(stmt.not_actions) > 0)
     ])
@@ -50,6 +57,11 @@ variable "target_id" {
   type        = string
   description = "The ID of the organization root, OU, or account to attach the SCP to"
   default     = null
+
+  validation {
+    condition     = var.target_id == null || can(regex("^(r-|ou-|[0-9]{12}$)", var.target_id))
+    error_message = "target_id must be an organization root (r-), OU (ou-), or 12-digit account ID. This can happen when a !terraform.output reference resolves to null."
+  }
 }
 
 variable "skip_destroy" {
