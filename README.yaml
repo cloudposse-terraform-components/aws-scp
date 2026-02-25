@@ -15,7 +15,46 @@ description: |-
 usage: |-
   **Stack Level**: Global (deployed in the management/root account)
 
-  ### Using policy_statements (recommended)
+  ### Using the SCP Policy Catalog (recommended)
+
+  This component ships with a `catalog/` directory of pre-built SCP policies based on
+  [CloudPosse terraform-aws-service-control-policies v0.15.1](https://github.com/cloudposse/terraform-aws-service-control-policies).
+  Use Atmos `!include` to reference catalog files directly:
+
+  ```yaml
+  components:
+    terraform:
+      aws-scp/organization-protections:
+        metadata:
+          component: aws-scp
+        vars:
+          enabled: true
+          policy_name: OrganizationProtections
+          policy_description: "Prevent leaving organization and deny root account access"
+          policy_statements: !include catalog/organization-policies.yaml
+          target_id: !terraform.output aws-organizational-unit/core organizational_unit_id
+  ```
+
+  Available catalog files:
+  - `account-policies.yaml` - Deny enabling/disabling AWS regions
+  - `cloudtrail-policies.yaml` - Protect CloudTrail audit logging
+  - `cloudwatch-logs-policies.yaml` - Protect CloudWatch logs and alarms
+  - `config-policies.yaml` - Protect AWS Config rules and recorders
+  - `deny-all-policies.yaml` - Deny all access (quarantine)
+  - `ec2-policies.yaml` - Require Nitro/encryption-in-transit, IMDSv2, MFA, EBS encryption
+  - `guardduty-policies.yaml` - Protect GuardDuty configuration
+  - `iam-policies.yaml` - Deny user creation, role changes, require MFA, deny root
+  - `kms-policies.yaml` - Prevent KMS key deletion
+  - `lambda-policies.yaml` - Require VPC for Lambda functions
+  - `organization-policies.yaml` - Prevent leaving org, deny root account
+  - `rds-policies.yaml` - Require RDS encryption
+  - `route53-policies.yaml` - Prevent hosted zone deletion
+  - `s3-policies.yaml` - Protect S3 buckets, require encryption
+  - `sagemaker-policies.yaml` - Enforce SageMaker security controls
+  - `shield-policies.yaml` - Prevent Shield protection removal
+  - `vpc-policies.yaml` - Protect flow logs, deny internet gateway creation
+
+  ### Using inline policy_statements
 
   ```yaml
   components:
@@ -110,11 +149,14 @@ usage: |-
 
   ## Policy Statements Format
 
+  Each statement must specify either `actions` or `not_actions`, but not both.
+  `not_actions` maps to the IAM `NotAction` element, which matches all actions except the listed ones.
+
   ```yaml
   policy_statements:
     - sid: "OptionalStatementId"
       effect: "Deny"  # or "Allow"
-      actions:
+      actions:         # use actions OR not_actions
         - "service:Action"
       resources:
         - "*"
@@ -123,6 +165,14 @@ usage: |-
           variable: "aws:RequestedRegion"
           values:
             - "us-east-1"
+
+    - sid: "ExampleWithNotActions"
+      effect: "Deny"
+      not_actions:     # matches everything EXCEPT these actions
+        - "iam:CreateVirtualMFADevice"
+        - "iam:EnableMFADevice"
+      resources:
+        - "*"
   ```
 
   ## Related Components
