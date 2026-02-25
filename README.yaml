@@ -34,7 +34,8 @@ usage: |-
                 - "organizations:LeaveOrganization"
               resources:
                 - "*"
-          target_id: !terraform.output aws-organizational-unit/core organizational_unit_id
+          target_ids:
+            - !terraform.output aws-organizational-unit/core organizational_unit_id
   ```
 
   ### Using policy_content (raw JSON)
@@ -59,7 +60,8 @@ usage: |-
                 }
               ]
             }
-          target_id: !terraform.output aws-organizational-unit/plat organizational_unit_id
+          target_ids:
+            - !terraform.output aws-organizational-unit/plat organizational_unit_id
   ```
 
   ### Policy Without Attachment

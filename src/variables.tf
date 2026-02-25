@@ -37,10 +37,20 @@ variable "policy_statements" {
   default     = []
 }
 
-variable "target_id" {
-  type        = string
-  description = "The ID of the organization root, OU, or account to attach the SCP to"
-  default     = null
+variable "target_ids" {
+  type        = list(string)
+  description = "The IDs of the organization roots, OUs, or accounts to attach the SCP to"
+  default     = []
+
+  validation {
+    condition     = alltrue([for id in var.target_ids : id != ""])
+    error_message = "All target IDs must be non-empty strings."
+  }
+
+  validation {
+    condition     = length(var.target_ids) == length(toset(var.target_ids))
+    error_message = "Target IDs must be unique. Duplicate entries are not allowed."
+  }
 }
 
 variable "skip_destroy" {
