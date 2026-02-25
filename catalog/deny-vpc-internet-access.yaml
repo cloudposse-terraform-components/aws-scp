@@ -1,12 +1,3 @@
-- sid: "DenyVpcDeletingFlowLogs"
-  effect: "Deny"
-  actions:
-    - "ec2:DeleteFlowLogs"
-    - "logs:DeleteLogGroup"
-    - "logs:DeleteLogStream"
-  resources:
-    - "*"
-
 - sid: "DenyVpcInternetAccess"
   effect: "Deny"
   actions:
