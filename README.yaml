@@ -20,7 +20,9 @@ usage: |-
   This component ships with a `catalog/` directory of pre-built SCP policies based on
   [CloudPosse terraform-aws-service-control-policies v0.15.1](https://github.com/cloudposse/terraform-aws-service-control-policies).
   Each file contains a single policy statement that maps to one SCP. Use Atmos `!include` to
-  reference catalog files directly:
+  reference catalog files directly (local path) or from a remote source:
+
+  **Local include** (when the catalog is vendored with the component):
 
   ```yaml
   components:
@@ -35,6 +37,25 @@ usage: |-
           policy_statements: !include catalog/deny-leaving-organization.yaml
           target_id: !terraform.output aws-organizational-unit/core organizational_unit_id
   ```
+
+  **Remote include** (reference the catalog directly from GitHub):
+
+  ```yaml
+  components:
+    terraform:
+      aws-scp/deny-leaving-org:
+        metadata:
+          component: aws-scp
+        vars:
+          enabled: true
+          policy_name: DenyLeavingOrganization
+          policy_statements: !include https://raw.githubusercontent.com/cloudposse-terraform-components/aws-scp/main/catalog/deny-leaving-organization.yaml
+          target_id: !terraform.output aws-organizational-unit/core organizational_unit_id
+  ```
+
+  Atmos supports multiple remote protocols including `https://`, `github://`, `s3://`, and `gcs://`
+  via [go-getter](https://atmos.tools/functions/yaml/include#remote-sources). Standard GitHub URLs
+  (with `/blob/` or `/tree/`) are automatically converted to raw content URLs.
 
   Available catalog files:
 
