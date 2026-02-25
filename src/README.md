@@ -41,7 +41,8 @@ components:
               - "organizations:LeaveOrganization"
             resources:
               - "*"
-        target_id: !terraform.output aws-organizational-unit/core organizational_unit_id
+        target_ids:
+          - !terraform.output aws-organizational-unit/core organizational_unit_id
 ```
 
 ### Using policy_content (raw JSON)
@@ -66,7 +67,8 @@ components:
               }
             ]
           }
-        target_id: !terraform.output aws-organizational-unit/plat organizational_unit_id
+        target_ids:
+          - !terraform.output aws-organizational-unit/plat organizational_unit_id
 ```
 
 ### Policy Without Attachment
@@ -201,19 +203,20 @@ This component is part of a suite of single-resource components for AWS Organiza
 | <a name="input_skip_destroy"></a> [skip\_destroy](#input\_skip\_destroy) | If true, the policy will be detached from the target but not destroyed when removed from Terraform | `bool` | `false` | no |
 | <a name="input_stage"></a> [stage](#input\_stage) | ID element. Usually used to indicate role, e.g. 'prod', 'staging', 'source', 'build', 'test', 'deploy', 'release' | `string` | `null` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags (e.g. `{'BusinessUnit': 'XYZ'}`).<br/>Neither the tag keys nor the tag values will be modified by this module. | `map(string)` | `{}` | no |
-| <a name="input_target_id"></a> [target\_id](#input\_target\_id) | The ID of the organization root, OU, or account to attach the SCP to | `string` | `null` | no |
+| <a name="input_target_id"></a> [target\_id](#input\_target\_id) | DEPRECATED: Use `target_ids` instead. The ID of the organization root, OU, or account to attach the SCP to. | `string` | `null` | no |
+| <a name="input_target_ids"></a> [target\_ids](#input\_target\_ids) | The IDs of the organization roots, OUs, or accounts to attach the SCP to | `list(string)` | `[]` | no |
 | <a name="input_tenant"></a> [tenant](#input\_tenant) | ID element \_(Rarely used, not included by default)\_. A customer identifier, indicating who this instance of a resource is for | `string` | `null` | no |
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
-| <a name="output_attached"></a> [attached](#output\_attached) | Whether the SCP was attached to a target |
-| <a name="output_attachment_id"></a> [attachment\_id](#output\_attachment\_id) | The ID of the policy attachment |
+| <a name="output_attached"></a> [attached](#output\_attached) | Whether the SCP was attached to any targets |
+| <a name="output_attachment_ids"></a> [attachment\_ids](#output\_attachment\_ids) | Map of target IDs to policy attachment IDs |
 | <a name="output_policy_arn"></a> [policy\_arn](#output\_policy\_arn) | The ARN of the Service Control Policy |
 | <a name="output_policy_id"></a> [policy\_id](#output\_policy\_id) | The ID of the Service Control Policy |
 | <a name="output_policy_name"></a> [policy\_name](#output\_policy\_name) | The name of the Service Control Policy |
-| <a name="output_target_id"></a> [target\_id](#output\_target\_id) | The target ID the SCP is attached to |
+| <a name="output_target_ids"></a> [target\_ids](#output\_target\_ids) | The target IDs the SCP is attached to |
 <!-- markdownlint-restore -->
 
 

@@ -13,17 +13,17 @@ output "policy_name" {
   description = "The name of the Service Control Policy"
 }
 
-output "target_id" {
-  value       = var.target_id
-  description = "The target ID the SCP is attached to"
+output "target_ids" {
+  value       = keys(aws_organizations_policy_attachment.this)
+  description = "The target IDs the SCP is attached to"
 }
 
-output "attachment_id" {
-  value       = try(aws_organizations_policy_attachment.this[0].id, null)
-  description = "The ID of the policy attachment"
+output "attachment_ids" {
+  value       = { for k, v in aws_organizations_policy_attachment.this : k => v.id }
+  description = "Map of target IDs to policy attachment IDs"
 }
 
 output "attached" {
-  value       = local.enabled && var.attach_to_target && var.target_id != null
-  description = "Whether the SCP was attached to a target"
+  value       = length(aws_organizations_policy_attachment.this) > 0
+  description = "Whether the SCP was attached to any targets"
 }

@@ -2,6 +2,12 @@ locals {
   enabled     = module.this.enabled
   policy_name = coalesce(var.policy_name, module.this.id, "default-policy")
 
+  # Combine deprecated target_id (single string) with target_ids (list)
+  all_target_ids = distinct(concat(
+    var.target_ids,
+    var.target_id != null ? [var.target_id] : []
+  ))
+
   generated_policy = length(var.policy_statements) > 0 ? jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -43,15 +49,15 @@ resource "aws_organizations_policy" "this" {
 }
 
 resource "aws_organizations_policy_attachment" "this" {
-  count = local.enabled && var.attach_to_target && var.target_id != null ? 1 : 0
+  for_each = local.enabled && var.attach_to_target ? toset(local.all_target_ids) : toset([])
 
   policy_id = aws_organizations_policy.this[0].id
-  target_id = var.target_id
+  target_id = each.value
 
   lifecycle {
     precondition {
-      condition     = !var.attach_to_target || var.target_id != null
-      error_message = "target_id must be set when attach_to_target is true. This can happen when a !terraform.output reference resolves to null."
+      condition     = !var.attach_to_target || length(local.all_target_ids) > 0
+      error_message = "target_ids must not be empty when attach_to_target is true. This can happen when a !terraform.output reference resolves to null."
     }
   }
 }
