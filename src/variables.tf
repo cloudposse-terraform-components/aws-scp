@@ -74,12 +74,6 @@ variable "target_ids" {
   }
 }
 
-variable "skip_destroy" {
-  type        = bool
-  description = "If true, the policy will be detached from the target but not destroyed when removed from Terraform"
-  default     = false
-}
-
 variable "attach_to_target" {
   type        = bool
   description = "Whether to attach the SCP to a target. Set to false to create the policy without attaching it."
