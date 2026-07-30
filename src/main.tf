@@ -13,9 +13,10 @@ locals {
     Statement = [
       for stmt in var.policy_statements : merge(
         {
-          Effect   = stmt.effect
-          Resource = stmt.resources
+          Effect = stmt.effect
         },
+        length(coalesce(stmt.resources, [])) > 0 ? { Resource = stmt.resources } : {},
+        length(coalesce(stmt.not_resources, [])) > 0 ? { NotResource = stmt.not_resources } : {},
         length(stmt.actions) > 0 ? { Action = stmt.actions } : {},
         length(stmt.not_actions) > 0 ? { NotAction = stmt.not_actions } : {},
         stmt.sid != null ? { Sid = stmt.sid } : {},

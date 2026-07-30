@@ -23,18 +23,19 @@ variable "policy_content" {
 
 variable "policy_statements" {
   type = list(object({
-    sid         = optional(string)
-    effect      = string
-    actions     = optional(list(string), [])
-    not_actions = optional(list(string), [])
-    resources   = list(string)
+    sid           = optional(string)
+    effect        = string
+    actions       = optional(list(string), [])
+    not_actions   = optional(list(string), [])
+    resources     = optional(list(string), [])
+    not_resources = optional(list(string), [])
     conditions = optional(list(object({
       test     = string
       variable = string
       values   = list(string)
     })), [])
   }))
-  description = "List of policy statements to generate the SCP. Alternative to policy_content. Each statement must specify either 'actions' or 'not_actions', but not both."
+  description = "List of policy statements to generate the SCP. Alternative to policy_content. Each statement must specify either 'actions' or 'not_actions', but not both, and either 'resources' or 'not_resources', but not both."
   default     = []
 
   validation {
@@ -50,6 +51,14 @@ variable "policy_statements" {
       (length(stmt.actions) > 0) != (length(stmt.not_actions) > 0)
     ])
     error_message = "Each policy statement must specify either 'actions' or 'not_actions', but not both."
+  }
+
+  validation {
+    condition = alltrue([
+      for stmt in var.policy_statements :
+      (length(coalesce(stmt.resources, [])) > 0) != (length(coalesce(stmt.not_resources, [])) > 0)
+    ])
+    error_message = "Each policy statement must specify either 'resources' or 'not_resources', but not both."
   }
 }
 
